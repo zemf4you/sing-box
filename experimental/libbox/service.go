@@ -50,6 +50,14 @@ func (w *platformInterfaceWrapper) AutoDetectInterfaceControl(fd int) error {
 }
 
 func (w *platformInterfaceWrapper) UsePlatformInterface() bool {
+	// Pacific seam: let the wrapped platform opt out of the fd-based TUN path.
+	// Windows has no TUN file descriptor (WinTun is a userspace ring-buffer API),
+	// so the desktop platform there returns false and sing-tun owns the adapter
+	// natively. Every platform that does not implement the optional override
+	// keeps the upstream behaviour (true).
+	if o, ok := w.iif.(interface{ UsePlatformInterface() bool }); ok {
+		return o.UsePlatformInterface()
+	}
 	return true
 }
 
@@ -100,6 +108,11 @@ func (w *platformInterfaceWrapper) MyInterfaceAddress() []netip.Addr {
 }
 
 func (w *platformInterfaceWrapper) UsePlatformDefaultInterfaceMonitor() bool {
+	// Pacific seam (see UsePlatformInterface): on Windows the native sing-tun
+	// monitor is used instead of the platform one. Defaults to true.
+	if o, ok := w.iif.(interface{ UsePlatformDefaultInterfaceMonitor() bool }); ok {
+		return o.UsePlatformDefaultInterfaceMonitor()
+	}
 	return true
 }
 
@@ -111,6 +124,12 @@ func (w *platformInterfaceWrapper) CreateDefaultInterfaceMonitor(logger logger.L
 }
 
 func (w *platformInterfaceWrapper) UsePlatformNetworkInterfaces() bool {
+	// Pacific seam (see UsePlatformInterface): on Windows libbox's NetworkInterfaces
+	// path hits a panic stub (linkFlags), so the desktop platform returns false and
+	// native interface enumeration is used. Defaults to true.
+	if o, ok := w.iif.(interface{ UsePlatformNetworkInterfaces() bool }); ok {
+		return o.UsePlatformNetworkInterfaces()
+	}
 	return true
 }
 
